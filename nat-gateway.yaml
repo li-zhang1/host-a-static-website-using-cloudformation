@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: This template creates a NAT Gateway and an Elastic IP address in each public subnet.
+
+Parameters:
+  ExportVpcStackName:
+    Description: The name of the VPC stack to export values.
+    Type: String
+
+Resources:
+  NatGatewayElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: ElasticIp
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayElasticIp.AllocationId
+      SubnetId: 
+        Fn::ImportValue: !Sub "${ExportVpcStackName}-PublicSubnet1ID"
+      Tags:
+        - Key: Name
+          Value: NatGatewayPublicSubnet1
+  
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-VPCID
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway 
+
+  PrivateAppSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: 
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateAppSubnet1ID
+
+  PrivateAppSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: 
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateAppSubnet2ID
+
+  PrivateDataSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId:
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateDataSubnet1ID
+
+  PrivateDataSubnet2RouteTableAssociation:  
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId:
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateDataSubnet2ID

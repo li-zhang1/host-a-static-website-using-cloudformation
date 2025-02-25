@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: This template creates an RDS DB that is restored from a DB snapshot.
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      - 
+        Label: 
+          default: Export VPC Stack Name
+        Parameters:
+          - ExportVpcStackName
+      - 
+        Label: 
+          default: Database Parameters
+        Parameters:
+          - DatabaseInstanceIdentifier
+          - DatabaseSnapshotIdentifier
+          - DatabaseInstanceClass
+          - MultiAZDatabase
+
+Parameters:
+  ExportVpcStackName:
+    Description: The name of the VPC stack to export values.
+    Type: String
+
+  DatabaseInstanceIdentifier:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+    Default: dev-rds
+    Description: The database instance identifier.
+    MaxLength: 60
+    MinLength: 1
+    Type: String
+
+  DatabaseSnapshotIdentifier:
+    Description: The arn of the DB snapshot that's used to resrore the DB instance.
+    Type: String
+
+  DatabaseInstanceClass:
+    AllowedValues:
+      - db.t3.micro
+      - db.m1.small
+      - db.m1.medium
+      - db.m1.large
+    ConstraintDescription: the database instance class must be a valid RDS instance type.
+    Default: db.t3.micro
+    Description: The database instance type
+    Type: String
+
+  MultiAZDatabase:
+    AllowedValues:
+      - true
+      - false
+    ConstraintDescription: Must be either true or false.
+    Default: false
+    Description: Specifies whether the DB instance is a Multi-AZ deployment.
+    Type: String
+  
+
+Resources:   
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS database
+      SubnetIds: 
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateDataSubnet1ID
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateDataSubnet2ID
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnets
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      DBInstanceIdentifier: !Ref DatabaseInstanceIdentifier
+      DBSnapshotIdentifier: !Ref DatabaseSnapshotIdentifier
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: MySQL
+      MultiAZ: !Ref MultiAZDatabase
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-DatabaseSecurityGroupID
+
